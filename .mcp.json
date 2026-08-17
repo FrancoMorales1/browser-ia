@@ -2,7 +2,11 @@
   "mcpServers": {
     "browser-scripts": {
       "command": "node",
-      "args": ["dist/index.js"]
+      "args": ["dist/index.js"],
+      "env": {
+        "DISPLAY": ":0",
+        "WAYLAND_DISPLAY": "wayland-0"
+      }
     }
   }
 }

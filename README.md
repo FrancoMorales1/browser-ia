@@ -48,6 +48,13 @@ Registrar el servidor en Claude Code: ya está declarado en `.mcp.json` en la ra
 del proyecto (`node dist/index.js`), así que Claude Code lo detecta automáticamente
 al abrir este directorio.
 
+> El navegador corre en modo `headless: false` (a propósito: hay que poder verlo y
+> operarlo a mano). Por eso `.mcp.json` pasa `DISPLAY`/`WAYLAND_DISPLAY` explícitos:
+> el cliente MCP lanza el servidor con un entorno mínimo por seguridad
+> (`HOME`, `PATH`, `SHELL`, `TERM`, `USER`) que no incluye variables gráficas, así
+> que sin esto Chromium falla con "Missing X server or $DISPLAY" aunque la sesión
+> sí tenga entorno gráfico.
+
 Durante desarrollo, `npm run dev` corre el servidor directo desde `src/` con `tsx`
 (sin compilar).
 
