@@ -1,0 +1,6 @@
+dist
+node_modules
+output
+profile
+scripts/**/*.md
+package-lock.json

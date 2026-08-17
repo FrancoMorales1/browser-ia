@@ -1,0 +1,18 @@
+# deps / build
+node_modules/
+dist/
+
+# browser persistent profile (sessions, cookies, cache) - never version this
+profile/
+
+# scraped/generated data
+output/*
+!output/.gitkeep
+
+# secrets
+config/.env
+.env
+
+# misc
+*.log
+.DS_Store
