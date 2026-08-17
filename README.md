@@ -62,8 +62,10 @@ Durante desarrollo, `npm run dev` corre el servidor directo desde `src/` con `ts
 
 ## Convenciones
 
-- Commits en formato [Conventional Commits](https://www.conventionalcommits.org/) (validado por commitlint).
-- Husky corre lint-staged en cada commit y commitlint en cada mensaje de commit.
+Commits, nombres de branch, versionado (SemVer automático) y formato de PR están
+documentados en [`CONTRIBUTING.md`](CONTRIBUTING.md). Husky corre lint-staged en
+cada commit, commitlint en cada mensaje de commit, y valida el nombre del branch
+en cada `git push`.
 
 ## Seguridad
 

@@ -6,6 +6,17 @@ on:
   pull_request:
 
 jobs:
+  branch-name:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validar convención <tipo>/<descripcion-corta>
+        run: |
+          branch="${{ github.head_ref }}"
+          echo "Branch: $branch"
+          echo "$branch" | grep -Eq '^(feat|fix|chore|docs|refactor|test|perf|ci|style|build|revert)/[a-z0-9._-]+$' \
+            || { echo "::error::Nombre de branch inválido: '$branch'. Debe ser <tipo>/<descripcion-corta>, ej: feat/leer-tabla-precios"; exit 1; }
+
   commitlint:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
