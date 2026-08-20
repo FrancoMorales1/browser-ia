@@ -55,5 +55,9 @@
   "validate-branch-name": {
     "pattern": "^(main|(feat|fix|chore|docs|refactor|test|perf|ci|style|build|revert)/[a-z0-9._-]+)$",
     "errorMsg": "El branch debe llamarse <tipo>/<descripcion-corta> (ej: feat/leer-tabla-precios). Tipos válidos: feat, fix, chore, docs, refactor, test, perf, ci, style, build, revert."
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "esbuild@0.21.5": true
   }
 }
