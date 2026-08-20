@@ -1,0 +1,4 @@
+# El árbol de trabajo vive en WSL y lo tocan herramientas Linux (npm, prettier,
+# eslint) además de git desde Windows, que tiene core.autocrlf=true. Sin esto,
+# cada corrida de formato deja todos los archivos "modificados" por CRLF/LF.
+* text=auto eol=lf

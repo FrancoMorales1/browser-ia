@@ -36,6 +36,7 @@ config/     # .env con credenciales — no se versiona (ver .env.example)
 | `list_scripts`      | Lista los scripts guardados                                            |
 | `run_saved_script`  | Corre un script guardado contra la pestaña activa                      |
 | `extract_to_json`   | Guarda datos extraídos como JSON en `output/`                          |
+| `close_browser`     | Cierra el navegador y libera el perfil (se reabre solo al usarlo)      |
 
 ## Uso
 
@@ -44,16 +45,46 @@ npm install
 npm run build
 ```
 
-Registrar el servidor en Claude Code: ya está declarado en `.mcp.json` en la raíz
-del proyecto (`node dist/index.js`), así que Claude Code lo detecta automáticamente
-al abrir este directorio.
+Playwright necesita además el Chromium y sus librerías de sistema:
 
-> El navegador corre en modo `headless: false` (a propósito: hay que poder verlo y
-> operarlo a mano). Por eso `.mcp.json` pasa `DISPLAY`/`WAYLAND_DISPLAY` explícitos:
-> el cliente MCP lanza el servidor con un entorno mínimo por seguridad
-> (`HOME`, `PATH`, `SHELL`, `TERM`, `USER`) que no incluye variables gráficas, así
-> que sin esto Chromium falla con "Missing X server or $DISPLAY" aunque la sesión
-> sí tenga entorno gráfico.
+```bash
+npx playwright install chromium
+sudo npx playwright install-deps chromium
+```
+
+Registrar el servidor en Claude Code: ya está declarado en `.mcp.json` en la raíz
+del proyecto, así que Claude Code lo detecta automáticamente al abrir este directorio.
+
+### Por qué `.mcp.json` arranca con `wsl.exe`
+
+El navegador corre en modo `headless: false` a propósito — hay que poder verlo y
+operarlo a mano — así que el servidor tiene que correr donde haya entorno gráfico y
+donde estén instalados los browsers de Playwright: adentro de WSL.
+
+Cuando Claude Code corre del lado de Windows (VSCode abierto sobre `\\wsl.localhost\…`),
+un `command: "node"` a secas usaría el Node de Windows, que no tiene los browsers ni
+display, y Chromium falla con `Executable doesn't exist at …\chrome-win64\chrome.exe`.
+Por eso el comando es `wsl.exe -e bash -lc …`, que cruza a Linux:
+
+- `-e` usa la distro y el usuario por defecto, sin hardcodear ninguno.
+- El `cwd` se traduce solo: `wsl.exe` lanzado desde la ruta UNC del proyecto cae
+  parado en el path Linux equivalente, así que `node dist/index.js` alcanza.
+- `source ~/.nvm/nvm.sh` hace falta porque el cliente MCP lanza el servidor con un
+  entorno mínimo (`HOME`, `PATH`, `SHELL`, `TERM`, `USER`) y `.bashrc` corta temprano
+  en shells no interactivos, así que sin esto `node` no está en el `PATH`.
+
+Si en cambio corrés Claude Code **adentro** de WSL, el puente sobra: alcanza con
+
+```json
+{ "command": "node", "args": ["dist/index.js"] }
+```
+
+### Ciclo de vida del navegador
+
+El navegador se lanza solo la primera vez que una herramienta lo necesita, y se reusa.
+Cerrar la ventana a mano, usar `close_browser`, o un crash de Chromium no dejan al
+servidor inservible: la siguiente herramienta detecta que el contexto murió y lo
+vuelve a levantar. No hace falta reiniciar el servidor MCP ni recargar VSCode.
 
 Durante desarrollo, `npm run dev` corre el servidor directo desde `src/` con `tsx`
 (sin compilar).

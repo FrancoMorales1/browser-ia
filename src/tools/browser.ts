@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { getActivePage } from "../browser-session.js";
+import { closeBrowser, getActivePage } from "../browser-session.js";
 
 export function registerBrowserTools(server: McpServer): void {
   server.registerTool(
@@ -71,6 +71,28 @@ export function registerBrowserTools(server: McpServer): void {
       const buffer = await page.screenshot({ fullPage: fullPage ?? false });
       return {
         content: [{ type: "image", data: buffer.toString("base64"), mimeType: "image/png" }],
+      };
+    },
+  );
+
+  server.registerTool(
+    "close_browser",
+    {
+      title: "Cerrar navegador",
+      description:
+        "Cierra el navegador y libera el perfil en disco. No hace falta reiniciar el " +
+        "servidor MCP: la próxima herramienta que necesite el navegador lo vuelve a abrir.",
+      inputSchema: {},
+    },
+    async () => {
+      const wasOpen = await closeBrowser();
+      return {
+        content: [
+          {
+            type: "text",
+            text: wasOpen ? "Navegador cerrado." : "El navegador ya estaba cerrado.",
+          },
+        ],
       };
     },
   );

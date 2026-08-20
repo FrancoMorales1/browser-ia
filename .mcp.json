@@ -1,12 +1,8 @@
 {
   "mcpServers": {
     "browser-scripts": {
-      "command": "node",
-      "args": ["dist/index.js"],
-      "env": {
-        "DISPLAY": ":0",
-        "WAYLAND_DISPLAY": "wayland-0"
-      }
+      "command": "wsl.exe",
+      "args": ["-e", "bash", "-lc", "source ~/.nvm/nvm.sh 2>/dev/null; exec node dist/index.js"]
     }
   }
 }
