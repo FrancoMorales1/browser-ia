@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Chat — browser-scripts</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0f1115;
+        --panel: #171a21;
+        --border: #2a2e37;
+        --text: #e6e8eb;
+        --muted: #9aa1ac;
+        --accent: #4f8cff;
+        --ok: #3ecf8e;
+        --err: #ff6b6b;
+        --warn: #e0a53e;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          15px/1.5 -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+      }
+      header {
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      header h1 {
+        font-size: 15px;
+        margin: 0;
+      }
+      #banner {
+        display: none;
+        padding: 10px 20px;
+        background: #2a2313;
+        color: var(--warn);
+        border-bottom: 1px solid var(--border);
+        font-size: 13px;
+      }
+      #banner a {
+        color: var(--warn);
+      }
+      #log {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .bubble {
+        max-width: 70%;
+        padding: 10px 14px;
+        border-radius: 12px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .bubble.user {
+        align-self: flex-end;
+        background: var(--accent);
+        color: white;
+      }
+      .bubble.assistant {
+        align-self: flex-start;
+        background: var(--panel);
+        border: 1px solid var(--border);
+      }
+      .toolline {
+        align-self: flex-start;
+        font-size: 12px;
+        color: var(--muted);
+        font-family: ui-monospace, monospace;
+        background: #0d0f13;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 6px 10px;
+        max-width: 85%;
+      }
+      .toolline.err {
+        color: var(--err);
+      }
+      .confirm {
+        align-self: flex-start;
+        background: #241a0d;
+        border: 1px solid var(--warn);
+        border-radius: 10px;
+        padding: 12px;
+        max-width: 85%;
+      }
+      .confirm pre {
+        margin: 8px 0;
+        padding: 8px;
+        background: #0d0f13;
+        border-radius: 6px;
+        max-height: 240px;
+        overflow: auto;
+        font-size: 12px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .confirm .btns {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .confirm button {
+        flex: 1;
+        border: none;
+        border-radius: 6px;
+        padding: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .confirm .approve {
+        background: var(--ok);
+        color: #06231a;
+      }
+      .confirm .reject {
+        background: var(--err);
+        color: #2b0b0b;
+      }
+      .confirm .decided {
+        opacity: 0.5;
+      }
+      .errbanner {
+        align-self: stretch;
+        color: var(--err);
+        font-size: 13px;
+        padding: 8px 12px;
+        background: #2a1313;
+        border-radius: 8px;
+      }
+      footer {
+        border-top: 1px solid var(--border);
+        padding: 14px 20px;
+        display: flex;
+        gap: 10px;
+      }
+      #composer {
+        flex: 1;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 14px;
+        color: var(--text);
+        font-size: 14px;
+        resize: none;
+      }
+      #sendBtn {
+        background: var(--accent);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 0 20px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      #sendBtn:disabled,
+      #composer:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Chat con el agente</h1>
+    </header>
+    <div id="banner">No se encontró el CLI de Claude Code — <a href="/settings">ver estado</a></div>
+    <div id="log"></div>
+    <footer>
+      <textarea id="composer" rows="1" placeholder="Escribí una instrucción…"></textarea>
+      <button id="sendBtn">Enviar</button>
+    </footer>
+
+    <script>
+      const log = document.getElementById("log");
+      const banner = document.getElementById("banner");
+      const composer = document.getElementById("composer");
+      const sendBtn = document.getElementById("sendBtn");
+
+      let lastSeq = -1; // el server filtra seq > since: -1 asegura incluir el primer evento (seq 0)
+      let cliFound = false;
+      let turnInProgress = false;
+      const confirmWidgets = new Map(); // callId -> element
+
+      function scrollToBottom() {
+        log.scrollTop = log.scrollHeight;
+      }
+
+      function addBubble(role, text) {
+        const el = document.createElement("div");
+        el.className = "bubble " + role;
+        el.textContent = text;
+        log.appendChild(el);
+        scrollToBottom();
+      }
+
+      function addToolLine(text, isError) {
+        const el = document.createElement("div");
+        el.className = "toolline" + (isError ? " err" : "");
+        el.textContent = text;
+        log.appendChild(el);
+        scrollToBottom();
+      }
+
+      function addError(text) {
+        const el = document.createElement("div");
+        el.className = "errbanner";
+        el.textContent = text;
+        log.appendChild(el);
+        scrollToBottom();
+      }
+
+      function addConfirm(callId, name, input) {
+        const el = document.createElement("div");
+        el.className = "confirm";
+        const pre = document.createElement("pre");
+        pre.textContent = JSON.stringify(input, null, 2);
+        const label = document.createElement("div");
+        label.textContent = `Confirmar ejecución de ${name}:`;
+        const btns = document.createElement("div");
+        btns.className = "btns";
+        const approve = document.createElement("button");
+        approve.className = "approve";
+        approve.textContent = "Confirmar";
+        const reject = document.createElement("button");
+        reject.className = "reject";
+        reject.textContent = "Rechazar";
+
+        async function decide(approved) {
+          approve.disabled = true;
+          reject.disabled = true;
+          await fetch("/api/chat/confirm", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ callId, approve: approved }),
+          });
+        }
+        approve.addEventListener("click", () => decide(true));
+        reject.addEventListener("click", () => decide(false));
+
+        btns.appendChild(approve);
+        btns.appendChild(reject);
+        el.appendChild(label);
+        el.appendChild(pre);
+        el.appendChild(btns);
+        log.appendChild(el);
+        confirmWidgets.set(callId, { approve, reject });
+        scrollToBottom();
+      }
+
+      function resolveConfirmUI(callId, approved) {
+        const w = confirmWidgets.get(callId);
+        if (!w) return;
+        w.approve.disabled = true;
+        w.reject.disabled = true;
+        w.approve.classList.toggle("decided", !approved);
+        w.reject.classList.toggle("decided", approved);
+      }
+
+      function setComposerEnabled(enabled) {
+        composer.disabled = !enabled || !cliFound;
+        sendBtn.disabled = !enabled || !cliFound;
+      }
+
+      function renderEvent(e) {
+        switch (e.type) {
+          case "user_message":
+            addBubble("user", e.text);
+            break;
+          case "assistant_text":
+            addBubble("assistant", e.text);
+            break;
+          case "tool_call":
+            addToolLine(`→ ${e.name}(${JSON.stringify(e.input)})`, false);
+            break;
+          case "tool_result":
+            addToolLine(`${e.isError ? "✗" : "✓"} ${e.name}: ${e.summary}`, e.isError);
+            break;
+          case "confirm_required":
+            addConfirm(e.callId, e.name, e.input);
+            break;
+          case "confirm_resolved":
+            resolveConfirmUI(e.callId, e.approved);
+            break;
+          case "error":
+            addError(e.message);
+            break;
+          case "turn_complete":
+            turnInProgress = false;
+            setComposerEnabled(true);
+            break;
+        }
+      }
+
+      async function pollEvents() {
+        try {
+          const res = await fetch(`/api/events?since=${lastSeq}`);
+          const data = await res.json();
+          for (const e of data.events) {
+            lastSeq = e.seq;
+            renderEvent(e);
+          }
+        } catch {
+          // se reintenta en el próximo tick
+        }
+      }
+
+      async function pollStatus() {
+        try {
+          const res = await fetch("/api/status");
+          const data = await res.json();
+          cliFound = data.cliFound;
+          banner.style.display = cliFound ? "none" : "block";
+          setComposerEnabled(!turnInProgress);
+        } catch {
+          // se reintenta en el próximo tick
+        }
+      }
+
+      async function send() {
+        const text = composer.value.trim();
+        if (!text || turnInProgress || !cliFound) return;
+        composer.value = "";
+        turnInProgress = true;
+        setComposerEnabled(false);
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          addError(data.error || `Error ${res.status}`);
+          turnInProgress = false;
+          setComposerEnabled(true);
+        }
+      }
+
+      sendBtn.addEventListener("click", send);
+      composer.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" && !ev.shiftKey) {
+          ev.preventDefault();
+          send();
+        }
+      });
+
+      setInterval(pollEvents, 1000);
+      setInterval(pollStatus, 5000);
+      pollEvents();
+      pollStatus();
+    </script>
+  </body>
+</html>

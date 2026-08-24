@@ -10,6 +10,8 @@ export const ROOT = resolve(HERE, "..");
 export const SCRIPTS_DIR = resolve(ROOT, "scripts");
 export const OUTPUT_DIR = resolve(ROOT, "output");
 export const PROFILE_DIR = resolve(ROOT, "profile");
+export const CONFIG_DIR = resolve(ROOT, "config");
+export const WEB_DIR = resolve(ROOT, "web");
 
 for (const dir of [SCRIPTS_DIR, OUTPUT_DIR, PROFILE_DIR]) {
   mkdirSync(dir, { recursive: true });

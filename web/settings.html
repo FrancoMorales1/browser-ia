@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>Estado — browser-scripts</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0f1115;
+        --panel: #171a21;
+        --border: #2a2e37;
+        --text: #e6e8eb;
+        --muted: #9aa1ac;
+        --ok: #3ecf8e;
+        --err: #ff6b6b;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          15px/1.5 -apple-system,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+      }
+      .card {
+        width: 480px;
+        max-width: calc(100vw - 40px);
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 28px;
+      }
+      h1 {
+        font-size: 18px;
+        margin: 0 0 4px;
+      }
+      p.sub {
+        color: var(--muted);
+        margin: 0 0 20px;
+        font-size: 13px;
+      }
+      .status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        padding: 12px 14px;
+        border-radius: 8px;
+        background: #0d0f13;
+        border: 1px solid var(--border);
+      }
+      .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--muted);
+        flex: none;
+      }
+      .dot.ok {
+        background: var(--ok);
+      }
+      .dot.err {
+        background: var(--err);
+      }
+      .help {
+        margin-top: 16px;
+        font-size: 13px;
+        color: var(--muted);
+        display: none;
+      }
+      .help.visible {
+        display: block;
+      }
+      .help pre {
+        background: #0d0f13;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 10px 12px;
+        overflow-x: auto;
+        color: var(--text);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Estado</h1>
+      <p class="sub">
+        Este modo habla con Claude a través del CLI de Claude Code, usando tu sesión ya logueada —
+        no requiere ninguna API key propia.
+      </p>
+
+      <div class="status" id="status">
+        <span class="dot" id="statusDot"></span>
+        <span id="statusText">Consultando…</span>
+      </div>
+
+      <div class="help" id="help">
+        <p>No se encontró el CLI <code>claude</code> en el PATH. Instalalo y volvé a intentar:</p>
+        <pre>npm install -g @anthropic-ai/claude-code</pre>
+        <p>
+          Después, logueate una vez con <code>claude</code> (o <code>claude /login</code>) usando tu
+          cuenta de Claude Pro/Max.
+        </p>
+      </div>
+    </div>
+
+    <script>
+      const statusDot = document.getElementById("statusDot");
+      const statusText = document.getElementById("statusText");
+      const help = document.getElementById("help");
+
+      async function refreshStatus() {
+        try {
+          const res = await fetch("/api/status");
+          const data = await res.json();
+          if (data.cliFound) {
+            statusDot.className = "dot ok";
+            statusText.textContent = `CLI detectado ✓ (${data.version || "versión desconocida"})`;
+            help.classList.remove("visible");
+          } else {
+            statusDot.className = "dot err";
+            statusText.textContent = "No se encontró el CLI de Claude Code";
+            help.classList.add("visible");
+          }
+        } catch {
+          statusDot.className = "dot err";
+          statusText.textContent = "No se pudo consultar el estado";
+        }
+      }
+
+      refreshStatus();
+      setInterval(refreshStatus, 5000);
+    </script>
+  </body>
+</html>

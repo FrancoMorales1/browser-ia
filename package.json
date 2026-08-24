@@ -9,6 +9,8 @@
     "dev": "tsx src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
+    "web": "tsx src/web/index.ts",
+    "start:web": "node dist/web/index.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
@@ -24,8 +26,9 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.15.0",
+    "dotenv": "^17.4.2",
     "playwright": "^1.54.0",
-    "zod": "^3.24.0"
+    "zod": "^3.25.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.6.0",

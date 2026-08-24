@@ -5,14 +5,29 @@ const { launchPersistentContext } = vi.hoisted(() => ({ launchPersistentContext:
 vi.mock("playwright", () => ({ chromium: { launchPersistentContext } }));
 vi.mock("./paths.js", () => ({ PROFILE_DIR: "/tmp/browser-scripts-test-profile" }));
 
+/** Doble de una Page con lo mínimo que usa browser-session/openUtilityTab. */
+function fakePage() {
+  return {
+    isClosed: () => false,
+    goto: vi.fn(() => Promise.resolve()),
+    once: vi.fn((_event: string, _fn: () => void) => {}),
+  };
+}
+
 /** Doble de BrowserContext con lo mínimo que usa browser-session. */
 function fakeContext() {
   let onClose: (() => void) | undefined;
-  const page = { isClosed: () => false };
+  const page = fakePage();
+  const pagesList: ReturnType<typeof fakePage>[] = [page];
   return {
     page,
-    pages: vi.fn(() => [page]),
-    newPage: vi.fn(() => Promise.resolve(page)),
+    pagesList,
+    pages: vi.fn(() => pagesList),
+    newPage: vi.fn(() => {
+      const p = fakePage();
+      pagesList.push(p);
+      return Promise.resolve(p);
+    }),
     close: vi.fn(() => Promise.resolve()),
     once: vi.fn((event: string, fn: () => void) => {
       if (event === "close") onClose = fn;
@@ -107,5 +122,37 @@ describe("closeBrowser", () => {
     // La referencia rota no debe quedar cacheada: se relanza igual.
     await getActivePage();
     expect(launchPersistentContext).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("openUtilityTab", () => {
+  it("abre una pestaña nueva y navega, sin que getActivePage la tome como activa", async () => {
+    const ctx = fakeContext();
+    launchPersistentContext.mockResolvedValue(ctx);
+    const { openUtilityTab, getActivePage } = await loadSession();
+
+    const utilityPage = await openUtilityTab("http://localhost:4127/settings");
+
+    expect(ctx.newPage).toHaveBeenCalledTimes(1);
+    expect(utilityPage.goto).toHaveBeenCalledWith("http://localhost:4127/settings", {
+      waitUntil: "domcontentloaded",
+    });
+
+    const active = await getActivePage();
+    expect(active).toBe(ctx.page);
+    expect(active).not.toBe(utilityPage);
+  });
+
+  it("si solo quedan pestañas de utilidad, getActivePage abre una pestaña real nueva", async () => {
+    const ctx = fakeContext();
+    ctx.pagesList.length = 0; // sin pestañas "reales" para empezar
+    launchPersistentContext.mockResolvedValue(ctx);
+    const { openUtilityTab, getActivePage } = await loadSession();
+
+    const utilityPage = await openUtilityTab("http://localhost:4127/chat");
+    const active = await getActivePage();
+
+    expect(active).not.toBe(utilityPage);
+    expect(ctx.newPage).toHaveBeenCalledTimes(2); // 1 utility + 1 fallback real
   });
 });
